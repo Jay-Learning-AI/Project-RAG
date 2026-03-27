@@ -1,8 +1,11 @@
-﻿from fastapi import FastAPI
+﻿from kb_config import load_settings
+from fastapi import FastAPI
 from pydantic import BaseModel
 from kb_chatbot.retriever import get_retriever
 from kb_chatbot.rag_chain import build_rag_chain
 from kb_chatbot.session_store import get_session_memory
+
+load_settings()
 
 app = FastAPI(title="Knowledge Base Chatbot")
 

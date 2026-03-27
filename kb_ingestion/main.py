@@ -1,8 +1,7 @@
 import os
-from dotenv import load_dotenv
+from kb_config import load_settings
 
-# Load .env from project root
-load_dotenv()
+load_settings()
 
 from kb_ingestion.document_loader import load_documents
 from kb_ingestion.image_extractor import extract_images
@@ -26,7 +25,7 @@ def validate_env():
     if missing:
         raise EnvironmentError(
             f"❌ Missing required environment variables: {', '.join(missing)}\n"
-            f"   Please fill them in the .env file at the project root."
+            "   Provide them through environment variables or GitHub Actions secrets."
         )
     print("✅ All environment variables are set.")
 

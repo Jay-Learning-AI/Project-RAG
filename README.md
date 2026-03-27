@@ -13,21 +13,31 @@ A Retrieval-Augmented Generation (RAG) chatbot that answers questions using your
    ```
    pip install -r requirements.txt
    ```
-2. Set up your `.env` file with the following variables:
+2. Configure secrets.
+
+   For GitHub Actions, add these repository secrets in GitHub:
    - `OPENAI_API_KEY`
    - `PINECONE_API_KEY`
    - `PINECONE_ENV`
    - `PINECONE_INDEX`
+   - `AWS_ACCESS_KEY_ID`
+   - `AWS_SECRET_ACCESS_KEY`
    - `AWS_REGION`
    - `S3_BUCKET_NAME`
-3. Run the ingestion script:
+
+   For local development, you can still place the same values in a project-root `.env` file. Environment variables provided by GitHub Secrets take precedence.
+3. Run the ingestion script locally:
    ```
    python -m kb_ingestion.main
    ```
-4. Start the API:
+4. Start the API locally:
    ```
    uvicorn kb_chatbot.api:app --reload
    ```
+
+## GitHub Actions
+- The ingestion workflow at `.github/workflows/ingest.yml` reads credentials from GitHub Secrets and exposes them as environment variables for the pipeline.
+- Pushing files into `data/documents/` or manually triggering the workflow runs ingestion in GitHub Actions.
 
 ## Folder Structure
 - `kb_chatbot/` - API and RAG logic
