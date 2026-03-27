@@ -1,4 +1,5 @@
 import os
+from numbers import Number
 
 from pinecone import Pinecone
 
@@ -38,6 +39,25 @@ def validate_index_dimension(pc: Pinecone, index_name: str) -> None:
         "Set OPENAI_EMBEDDING_MODEL to a compatible model or recreate the index with the matching dimension."
     )
 
+
+def _sanitize_metadata(metadata: dict) -> dict:
+    sanitized = {}
+
+    for key, value in metadata.items():
+        if value is None:
+            continue
+
+        if isinstance(value, str | bool | Number):
+            sanitized[key] = value
+            continue
+
+        if isinstance(value, list):
+            string_items = [item for item in value if isinstance(item, str)]
+            if string_items:
+                sanitized[key] = string_items
+
+    return sanitized
+
 def upsert_vectors(chunks, embeddings):
     pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
     index_name = os.getenv("PINECONE_INDEX")
@@ -50,7 +70,7 @@ def upsert_vectors(chunks, embeddings):
         vectors.append({
             "id": f"{chunk['metadata']['source']}-{i}",
             "values": vector,
-            "metadata": {**chunk["metadata"], "text": chunk["text"]}
+            "metadata": _sanitize_metadata({**chunk["metadata"], "text": chunk["text"]})
         })
 
     index.upsert(vectors=vectors)
