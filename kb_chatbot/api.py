@@ -1,4 +1,6 @@
-﻿from kb_config import load_settings
+﻿from functools import lru_cache
+
+from kb_config import load_settings
 from fastapi import FastAPI
 from pydantic import BaseModel
 from kb_chatbot.retriever import get_retriever
@@ -9,15 +11,30 @@ load_settings()
 
 app = FastAPI(title="Knowledge Base Chatbot")
 
-retriever = get_retriever()
-rag_chain = build_rag_chain(retriever, get_session_memory)
+
+@lru_cache(maxsize=1)
+def get_runtime():
+    retriever = get_retriever()
+    rag_chain = build_rag_chain(retriever, get_session_memory)
+    return retriever, rag_chain
 
 class Query(BaseModel):
     session_id: str = "default"
     question: str
 
+
+@app.get("/")
+def root():
+    return {"status": "ok", "docs": "/docs"}
+
+
+@app.get("/health")
+def health():
+    return {"status": "healthy"}
+
 @app.post("/chat")
 def chat(query: Query):
+    _, rag_chain = get_runtime()
     result = rag_chain.invoke(
         {"question": query.question},
         config={"configurable": {"session_id": query.session_id}},

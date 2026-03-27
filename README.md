@@ -36,6 +36,29 @@ A Retrieval-Augmented Generation (RAG) chatbot that answers questions using your
    uvicorn kb_chatbot.api:app --reload
    ```
 
+## Render Deployment
+1. Push this repository to GitHub.
+2. In Render, create a new Blueprint or Web Service from the GitHub repository.
+3. Render will detect [render.yaml](render.yaml) and create the API service automatically.
+4. Add these environment variables in Render if they are not already populated from the blueprint:
+   - `OPENAI_API_KEY`
+   - `OPENAI_EMBEDDING_MODEL` (`text-embedding-3-small` by default)
+   - `PINECONE_API_KEY`
+   - `PINECONE_ENV`
+   - `PINECONE_INDEX`
+   - `AWS_ACCESS_KEY_ID`
+   - `AWS_SECRET_ACCESS_KEY`
+   - `AWS_REGION`
+   - `S3_BUCKET_NAME`
+5. Deploy the service. Render will start the API with:
+   ```
+   uvicorn kb_chatbot.api:app --host 0.0.0.0 --port $PORT
+   ```
+6. After deployment, verify these endpoints:
+   - `/health`
+   - `/docs`
+   - `POST /chat`
+
 ## GitHub Actions
 - The ingestion workflow at `.github/workflows/ingest.yml` reads credentials from GitHub Secrets and exposes them as environment variables for the pipeline.
 - Pushing files into `data/documents/` or manually triggering the workflow runs ingestion in GitHub Actions.
