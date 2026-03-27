@@ -24,6 +24,7 @@ A Retrieval-Augmented Generation (RAG) chatbot that answers questions using your
    - `AWS_SECRET_ACCESS_KEY`
    - `AWS_REGION`
    - `S3_BUCKET_NAME`
+   - Optional: `OPENAI_EMBEDDING_MODEL` (`text-embedding-3-small` for 1536-dimension indexes, `text-embedding-3-large` for 3072-dimension indexes)
 
    For local development, you can still place the same values in a project-root `.env` file. Environment variables provided by GitHub Secrets take precedence.
 3. Run the ingestion script locally:
