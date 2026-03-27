@@ -23,14 +23,12 @@ def chat(query: Query):
         config={"configurable": {"session_id": query.session_id}},
     )
 
-    # Collect images from retrieved source documents
-    source_docs = retriever.invoke(query.question)
     image_urls = []
-    for doc in source_docs:
+    for doc in result["source_docs"]:
         image_urls.extend(doc.metadata.get("image_urls", []))
 
     return {
-        "answer": result,
+        "answer": result["answer"],
         "images": list(set(image_urls))
     }
 

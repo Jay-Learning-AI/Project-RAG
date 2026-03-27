@@ -3,7 +3,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
+from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from kb_chatbot.prompt import RAG_PROMPT
 
 
@@ -30,10 +30,10 @@ def build_rag_chain(retriever, get_session_history):
         return "\n\n".join(doc.page_content for doc in docs)
 
     rag_chain = (
-        RunnablePassthrough.assign(context=lambda x: format_docs(retriever.invoke(x["question"])))
-        | prompt
-        | llm
-        | StrOutputParser()
+        RunnablePassthrough.assign(source_docs=lambda x: retriever.invoke(x["question"]))
+        .assign(context=lambda x: format_docs(x["source_docs"]))
+        .assign(answer=prompt | llm | StrOutputParser())
+        | RunnableLambda(lambda x: {"answer": x["answer"], "source_docs": x["source_docs"]})
     )
 
     return RunnableWithMessageHistory(
@@ -41,4 +41,5 @@ def build_rag_chain(retriever, get_session_history):
         get_session_history,
         input_messages_key="question",
         history_messages_key="chat_history",
+        output_messages_key="answer",
     )
