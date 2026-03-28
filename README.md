@@ -39,6 +39,10 @@ A Retrieval-Augmented Generation (RAG) chatbot that answers questions using your
    ```
    http://127.0.0.1:8000/
    ```
+   The frontend files are stored separately in:
+   - `kb_chatbot/static/index.html`
+   - `kb_chatbot/static/styles.css`
+   - `kb_chatbot/static/app.js`
 
 ## Render Deployment
 1. Push this repository to GitHub.

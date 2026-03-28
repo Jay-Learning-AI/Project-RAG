@@ -1,8 +1,11 @@
 import os
+
 from pinecone import Pinecone
-from langchain_community.vectorstores import Pinecone as LangchainPinecone
+from langchain_pinecone import PineconeVectorStore
+
 from kb_ingestion.embeddings import get_embeddings
 from kb_ingestion.vector_store import validate_index_dimension
+
 
 def get_retriever():
     pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
@@ -11,9 +14,9 @@ def get_retriever():
 
     embeddings = get_embeddings()
 
-    vectorstore = LangchainPinecone.from_existing_index(
-        index_name,
-        embeddings
+    vectorstore = PineconeVectorStore(
+        index_name=index_name,
+        embedding=embeddings,
     )
 
     return vectorstore.as_retriever(search_kwargs={"k": 5})

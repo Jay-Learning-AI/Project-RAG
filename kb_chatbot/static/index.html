@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project RAG Chatbot</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+    <main class="shell">
+        <section class="hero">
+            <div>
+                <h1>Knowledge Base Chatbot</h1>
+                <p>Ask questions about your ingested documents, get a grounded answer from the RAG pipeline, and review the screenshots returned from the matching chunks.</p>
+            </div>
+            <aside class="hero-card">
+                <strong>Live Service</strong>
+                <p>This UI sends requests directly to the existing <code>/chat</code> endpoint, so the same retrieval and screenshot response flow powers both the API and this frontend.</p>
+            </aside>
+        </section>
+
+        <section class="layout">
+            <form class="sidebar" id="chat-form">
+                <h2>Ask Anything</h2>
+
+                <label for="session-id">Session ID</label>
+                <input id="session-id" name="session-id" type="text" value="render-session" />
+
+                <label for="question">Question</label>
+                <textarea id="question" name="question" placeholder="Example: What is the pivot process?"></textarea>
+
+                <button id="send-button" type="submit">Send Question</button>
+
+                <p class="hint">Use the same session ID for follow-up questions so the chatbot can keep conversation history.</p>
+            </form>
+
+            <section class="chat-area">
+                <div class="messages" id="messages">
+                    <article class="message assistant">
+                        <span class="message-meta">Assistant</span>
+                        Ask a question to start the conversation.
+                    </article>
+                </div>
+
+                <div class="footer-bar">
+                    <span>Health check: <a href="/health">/health</a></span>
+                    <span>API docs: <a href="/docs">/docs</a></span>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
