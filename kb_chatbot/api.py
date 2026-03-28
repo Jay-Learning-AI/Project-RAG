@@ -1,4 +1,5 @@
 ﻿import os
+import re
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -24,6 +25,23 @@ REQUIRED_CHAT_ENV_VARS = [
 ]
 
 SIGNED_IMAGE_TTL_SECONDS = 3600
+MIN_IMAGE_RETRIEVAL_SCORE = float(os.getenv("MIN_IMAGE_RETRIEVAL_SCORE", "0.35"))
+INSUFFICIENT_CONTEXT_MESSAGE = "the provided context does not contain enough information to answer this question"
+
+SMALL_TALK_PATTERNS = {
+    "hi",
+    "hello",
+    "hey",
+    "hey there",
+    "hi there",
+    "good morning",
+    "good afternoon",
+    "good evening",
+    "how are you",
+    "how are you doing",
+    "what's up",
+    "whats up",
+}
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -86,6 +104,66 @@ def _unique_image_urls(image_refs: list[str]) -> list[str]:
     return unique_urls
 
 
+def _select_relevant_source_docs(source_docs: list) -> list:
+    if not source_docs:
+        return []
+
+    grouped = {}
+    for doc in source_docs:
+        source = doc.metadata.get("source") or ""
+        entry = grouped.setdefault(source, {"docs": [], "count": 0, "score_sum": 0.0, "best_rank": 10**9})
+        entry["docs"].append(doc)
+        entry["count"] += 1
+
+        score = doc.metadata.get("retrieval_score")
+        if isinstance(score, (int, float)):
+            entry["score_sum"] += float(score)
+
+        rank = doc.metadata.get("retrieval_rank")
+        if isinstance(rank, int):
+            entry["best_rank"] = min(entry["best_rank"], rank)
+
+    selected = max(
+        grouped.values(),
+        key=lambda item: (item["count"], item["score_sum"], -item["best_rank"]),
+    )
+    return selected["docs"]
+
+
+def _normalize_query(text: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9\s]", " ", text.lower())).strip()
+
+
+def _is_small_talk(question: str) -> bool:
+    normalized = _normalize_query(question)
+    if not normalized:
+        return True
+    return normalized in SMALL_TALK_PATTERNS
+
+
+def _answer_indicates_missing_context(answer: str) -> bool:
+    return INSUFFICIENT_CONTEXT_MESSAGE in answer.lower()
+
+
+def _has_strong_retrieval_signal(source_docs: list) -> bool:
+    scores = [doc.metadata.get("retrieval_score") for doc in source_docs if isinstance(doc.metadata.get("retrieval_score"), (int, float))]
+    if not scores:
+        return False
+    return max(scores) >= MIN_IMAGE_RETRIEVAL_SCORE
+
+
+def _should_include_images(question: str, answer: str, source_docs: list) -> bool:
+    if _is_small_talk(question):
+        return False
+    if not source_docs:
+        return False
+    if _answer_indicates_missing_context(answer):
+        return False
+    if not _has_strong_retrieval_signal(source_docs):
+        return False
+    return any(doc.metadata.get("image_urls") for doc in source_docs)
+
+
 @lru_cache(maxsize=1)
 def get_runtime():
     missing = [name for name in REQUIRED_CHAT_ENV_VARS if not os.getenv(name)]
@@ -129,9 +207,12 @@ def chat(query: Query):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Chat request failed: {exc}") from exc
 
+    relevant_source_docs = _select_relevant_source_docs(result["source_docs"])
+
     image_urls = []
-    for doc in result["source_docs"]:
-        image_urls.extend(doc.metadata.get("image_urls", []))
+    if _should_include_images(query.question, result["answer"], relevant_source_docs):
+        for doc in relevant_source_docs:
+            image_urls.extend(doc.metadata.get("image_urls", []))
 
     return {
         "answer": result["answer"],

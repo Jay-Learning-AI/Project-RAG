@@ -24,8 +24,10 @@ class PineconeRetriever:
 
         matches = _extract_matches(result)
         documents = []
-        for match in matches:
+        for rank, match in enumerate(matches):
             metadata = dict(match.get("metadata") or {})
+            metadata["retrieval_score"] = match.get("score")
+            metadata["retrieval_rank"] = rank
             page_content = metadata.pop("text", "")
             documents.append(Document(page_content=page_content, metadata=metadata))
 
