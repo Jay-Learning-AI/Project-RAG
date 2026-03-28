@@ -299,3 +299,37 @@ body {
         max-width: 100%;
     }
 }
+
+.guide {
+    display: grid;
+    gap: 16px;
+}
+
+.guide-step {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid rgba(55, 112, 82, 0.14);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.56);
+}
+
+.guide-step-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-strong);
+}
+
+.guide-step-body {
+    white-space: pre-wrap;
+}
+
+.image-section-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+}

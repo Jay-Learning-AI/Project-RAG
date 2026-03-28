@@ -104,6 +104,43 @@ def _unique_image_urls(image_refs: list[str]) -> list[str]:
     return unique_urls
 
 
+def _sort_docs_for_guidance(source_docs: list) -> list:
+    def sort_key(doc):
+        page = doc.metadata.get("page")
+        rank = doc.metadata.get("retrieval_rank")
+        normalized_page = page if isinstance(page, int) else 10**9
+        normalized_rank = rank if isinstance(rank, int) else 10**9
+        return (normalized_page, normalized_rank)
+
+    return sorted(source_docs, key=sort_key)
+
+
+def _build_image_sections(source_docs: list) -> list[dict]:
+    ordered_docs = _sort_docs_for_guidance(source_docs)
+    sections = []
+    seen_keys = set()
+
+    for doc in ordered_docs:
+        page = doc.metadata.get("page")
+        image_urls = _unique_image_urls(doc.metadata.get("image_urls", []))
+        if not image_urls:
+            continue
+
+        dedupe_key = (doc.metadata.get("source"), page, tuple(image_urls))
+        if dedupe_key in seen_keys:
+            continue
+        seen_keys.add(dedupe_key)
+
+        title = f"Page {page + 1}" if isinstance(page, int) else "Related Screenshot"
+        sections.append({
+            "title": title,
+            "page": page,
+            "images": image_urls,
+        })
+
+    return sections
+
+
 def _select_relevant_source_docs(source_docs: list) -> list:
     if not source_docs:
         return []
@@ -210,12 +247,15 @@ def chat(query: Query):
     relevant_source_docs = _select_relevant_source_docs(result["source_docs"])
 
     image_urls = []
+    image_sections = []
     if _should_include_images(query.question, result["answer"], relevant_source_docs):
+        image_sections = _build_image_sections(relevant_source_docs)
         for doc in relevant_source_docs:
             image_urls.extend(doc.metadata.get("image_urls", []))
 
     return {
         "answer": result["answer"],
-        "images": _unique_image_urls(image_urls)
+        "images": _unique_image_urls(image_urls),
+        "image_sections": image_sections,
     }
 
