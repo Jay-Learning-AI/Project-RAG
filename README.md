@@ -35,6 +35,10 @@ A Retrieval-Augmented Generation (RAG) chatbot that answers questions using your
    ```
    uvicorn kb_chatbot.api:app --reload
    ```
+5. Open the built-in chat UI:
+   ```
+   http://127.0.0.1:8000/
+   ```
 
 ## Render Deployment
 1. Push this repository to GitHub.
@@ -55,6 +59,7 @@ A Retrieval-Augmented Generation (RAG) chatbot that answers questions using your
    uvicorn kb_chatbot.api:app --host 0.0.0.0 --port $PORT
    ```
 6. After deployment, verify these endpoints:
+   - `/`
    - `/health`
    - `/docs`
    - `POST /chat`
