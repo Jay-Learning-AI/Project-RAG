@@ -1,7 +1,8 @@
 ﻿from functools import lru_cache
+import os
 
 from kb_config import load_settings
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from kb_chatbot.retriever import get_retriever
@@ -11,6 +12,12 @@ from kb_chatbot.session_store import get_session_memory
 load_settings()
 
 app = FastAPI(title="Knowledge Base Chatbot")
+
+REQUIRED_CHAT_ENV_VARS = [
+    "OPENAI_API_KEY",
+    "PINECONE_API_KEY",
+    "PINECONE_INDEX",
+]
 
 
 CHAT_UI_HTML = """
@@ -408,8 +415,17 @@ CHAT_UI_HTML = """
                 });
 
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || "Request failed.");
+                    let errorMessage = "Request failed.";
+
+                    try {
+                        const errorPayload = await response.json();
+                        errorMessage = errorPayload.detail || JSON.stringify(errorPayload);
+                    } catch (parseError) {
+                        const errorText = await response.text();
+                        errorMessage = errorText || errorMessage;
+                    }
+
+                    throw new Error(errorMessage);
                 }
 
                 const payload = await response.json();
@@ -429,6 +445,14 @@ CHAT_UI_HTML = """
 
 @lru_cache(maxsize=1)
 def get_runtime():
+    missing = [name for name in REQUIRED_CHAT_ENV_VARS if not os.getenv(name)]
+    if missing:
+        raise RuntimeError(
+            "Chat service is not configured. Missing environment variables: "
+            f"{', '.join(missing)}. "
+            "Add them to the runtime environment before using /chat."
+        )
+
     retriever = get_retriever()
     rag_chain = build_rag_chain(retriever, get_session_memory)
     return retriever, rag_chain
@@ -449,11 +473,18 @@ def health():
 
 @app.post("/chat")
 def chat(query: Query):
-    _, rag_chain = get_runtime()
-    result = rag_chain.invoke(
-        {"question": query.question},
-        config={"configurable": {"session_id": query.session_id}},
-    )
+    try:
+        _, rag_chain = get_runtime()
+        result = rag_chain.invoke(
+            {"question": query.question},
+            config={"configurable": {"session_id": query.session_id}},
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Chat request failed: {exc}") from exc
 
     image_urls = []
     for doc in result["source_docs"]:
