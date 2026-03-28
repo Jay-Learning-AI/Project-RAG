@@ -116,6 +116,21 @@ def _sort_docs_for_guidance(source_docs: list) -> list:
 
 
 def _build_image_sections(source_docs: list) -> list[dict]:
+    if source_docs and all(doc.metadata.get("page") is None for doc in source_docs):
+        all_images = []
+        for doc in source_docs:
+            all_images.extend(doc.metadata.get("image_urls", []))
+
+        unique_images = _unique_image_urls(all_images)
+        return [
+            {
+                "title": f"Screenshot {index + 1}",
+                "page": None,
+                "images": [image_url],
+            }
+            for index, image_url in enumerate(unique_images)
+        ]
+
     ordered_docs = _sort_docs_for_guidance(source_docs)
     sections = []
     seen_keys = set()
@@ -189,6 +204,11 @@ def _has_strong_retrieval_signal(source_docs: list) -> bool:
     return max(scores) >= MIN_IMAGE_RETRIEVAL_SCORE
 
 
+def _is_single_source_match(source_docs: list) -> bool:
+    sources = {doc.metadata.get("source") for doc in source_docs if doc.metadata.get("source")}
+    return len(sources) == 1
+
+
 def _should_include_images(question: str, answer: str, source_docs: list) -> bool:
     if _is_small_talk(question):
         return False
@@ -196,9 +216,14 @@ def _should_include_images(question: str, answer: str, source_docs: list) -> boo
         return False
     if _answer_indicates_missing_context(answer):
         return False
-    if not _has_strong_retrieval_signal(source_docs):
+    has_images = any(doc.metadata.get("image_urls") for doc in source_docs)
+    if not has_images:
         return False
-    return any(doc.metadata.get("image_urls") for doc in source_docs)
+
+    if _has_strong_retrieval_signal(source_docs):
+        return True
+
+    return _is_single_source_match(source_docs)
 
 
 @lru_cache(maxsize=1)

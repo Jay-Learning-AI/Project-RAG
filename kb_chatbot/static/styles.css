@@ -18,7 +18,7 @@
 
 body {
     margin: 0;
-    min-height: 100vh;
+    height: 100vh;
     font-family: Georgia, "Times New Roman", serif;
     color: var(--text);
     background:
@@ -26,11 +26,15 @@ body {
         radial-gradient(circle at bottom right, rgba(163, 230, 220, 0.9), transparent 28%),
         linear-gradient(180deg, #f6f0e8 0%, #eadfce 100%);
     padding: 28px;
+    overflow: hidden;
 }
 
 .shell {
     max-width: 1120px;
     margin: 0 auto;
+    height: calc(100vh - 56px);
+    display: grid;
+    grid-template-rows: auto 1fr;
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 28px;
@@ -89,7 +93,7 @@ body {
 .layout {
     display: grid;
     grid-template-columns: 280px 1fr;
-    min-height: 68vh;
+    min-height: 0;
 }
 
 .sidebar {
@@ -164,16 +168,37 @@ body {
 .chat-area {
     display: grid;
     grid-template-rows: 1fr auto;
+    min-height: 0;
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.56), rgba(255, 255, 255, 0.84)),
         repeating-linear-gradient(180deg, transparent, transparent 26px, rgba(0, 0, 0, 0.02) 27px);
 }
 
 .messages {
+    min-height: 0;
     padding: 24px;
     overflow-y: auto;
     display: grid;
     gap: 16px;
+    scroll-behavior: smooth;
+}
+
+.messages::-webkit-scrollbar {
+    width: 10px;
+}
+
+.messages::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.45);
+    border-radius: 999px;
+}
+
+.messages::-webkit-scrollbar-thumb {
+    background: rgba(13, 110, 110, 0.32);
+    border-radius: 999px;
+}
+
+.messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(13, 110, 110, 0.48);
 }
 
 .message {
@@ -282,12 +307,17 @@ body {
 
 @media (max-width: 860px) {
     body {
+        height: 100dvh;
         padding: 16px;
     }
 
     .hero,
     .layout {
         grid-template-columns: 1fr;
+    }
+
+    .shell {
+        height: calc(100dvh - 32px);
     }
 
     .sidebar {
