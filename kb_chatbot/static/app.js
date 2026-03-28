@@ -22,18 +22,33 @@ function appendMessage(role, text, images = []) {
         imageGrid.className = "images";
 
         for (const imageUrl of images) {
+            const card = document.createElement("div");
+            card.className = "image-card";
+
             const link = document.createElement("a");
             link.href = imageUrl;
             link.target = "_blank";
             link.rel = "noreferrer";
+            link.className = "image-link";
 
             const image = document.createElement("img");
             image.src = imageUrl;
             image.alt = "Retrieved screenshot";
             image.loading = "lazy";
+            image.addEventListener("error", () => {
+                card.classList.add("image-card-error");
+                image.remove();
+                const fallback = document.createElement("span");
+                fallback.className = "image-fallback";
+                fallback.textContent = "Screenshot unavailable";
+                if (!link.querySelector(".image-fallback")) {
+                    link.appendChild(fallback);
+                }
+            }, { once: true });
 
             link.appendChild(image);
-            imageGrid.appendChild(link);
+            card.appendChild(link);
+            imageGrid.appendChild(card);
         }
 
         article.appendChild(imageGrid);

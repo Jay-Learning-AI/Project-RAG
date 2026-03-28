@@ -1,7 +1,9 @@
 ﻿import os
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
+import boto3
 from kb_config import load_settings
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -21,11 +23,67 @@ REQUIRED_CHAT_ENV_VARS = [
     "PINECONE_INDEX",
 ]
 
+SIGNED_IMAGE_TTL_SECONDS = 3600
+
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 INDEX_FILE = STATIC_DIR / "index.html"
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@lru_cache(maxsize=1)
+def get_s3_client():
+    region_name = os.getenv("AWS_REGION")
+    return boto3.client("s3", region_name=region_name) if region_name else boto3.client("s3")
+
+
+def _extract_s3_location(image_ref: str) -> tuple[str | None, str | None]:
+    if not image_ref:
+        return None, None
+
+    if image_ref.startswith("http://") or image_ref.startswith("https://"):
+        parsed = urlparse(image_ref)
+        host_parts = parsed.netloc.split(".")
+        if not host_parts:
+            return None, None
+
+        bucket = host_parts[0]
+        key = unquote(parsed.path.lstrip("/"))
+        return (bucket or None), (key or None)
+
+    bucket = os.getenv("S3_BUCKET_NAME")
+    key = image_ref.lstrip("/")
+    return (bucket or None), (key or None)
+
+
+def _build_image_url(image_ref: str) -> str:
+    bucket, key = _extract_s3_location(image_ref)
+    if not bucket or not key:
+        return image_ref
+
+    try:
+        return get_s3_client().generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=SIGNED_IMAGE_TTL_SECONDS,
+        )
+    except Exception:
+        return image_ref
+
+
+def _unique_image_urls(image_refs: list[str]) -> list[str]:
+    unique_urls = []
+    seen = set()
+
+    for image_ref in image_refs:
+        access_url = _build_image_url(image_ref)
+        if access_url in seen:
+            continue
+        seen.add(access_url)
+        unique_urls.append(access_url)
+
+    return unique_urls
 
 
 @lru_cache(maxsize=1)
@@ -77,6 +135,6 @@ def chat(query: Query):
 
     return {
         "answer": result["answer"],
-        "images": list(set(image_urls))
+        "images": _unique_image_urls(image_urls)
     }
 
