@@ -129,8 +129,9 @@ def _sort_docs_for_guidance(source_docs: list) -> list:
 
 def _build_image_sections(source_docs: list) -> list[dict]:
     if source_docs and all(doc.metadata.get("page") is None for doc in source_docs):
+        ordered_docs = _sort_docs_for_guidance(source_docs)
         all_images = []
-        for doc in source_docs:
+        for doc in ordered_docs:
             all_images.extend(doc.metadata.get("image_urls", []))
 
         unique_images = _unique_image_urls(all_images)
