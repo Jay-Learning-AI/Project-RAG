@@ -5,6 +5,16 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 import boto3
+
+SOURCE_STOPWORDS = {
+    "pdf",
+    "doc",
+    "docx",
+    "txt",
+    "html",
+    "process",
+    "document",
+}
 from kb_config import load_settings
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -107,10 +117,12 @@ def _unique_image_urls(image_refs: list[str]) -> list[str]:
 def _sort_docs_for_guidance(source_docs: list) -> list:
     def sort_key(doc):
         page = doc.metadata.get("page")
+        paragraph_index = doc.metadata.get("paragraph_index")
         rank = doc.metadata.get("retrieval_rank")
         normalized_page = page if isinstance(page, int) else 10**9
+        normalized_paragraph = paragraph_index if isinstance(paragraph_index, int) else 10**9
         normalized_rank = rank if isinstance(rank, int) else 10**9
-        return (normalized_page, normalized_rank)
+        return (normalized_page, normalized_paragraph, normalized_rank)
 
     return sorted(source_docs, key=sort_key)
 
@@ -156,14 +168,44 @@ def _build_image_sections(source_docs: list) -> list[dict]:
     return sections
 
 
-def _select_relevant_source_docs(source_docs: list) -> list:
+def _normalize_query(text: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9\s]", " ", text.lower())).strip()
+
+
+def _tokenize_text(text: str) -> set[str]:
+    normalized = _normalize_query(text)
+    if not normalized:
+        return set()
+    return {
+        token
+        for token in normalized.split(" ")
+        if token and token not in SOURCE_STOPWORDS and len(token) > 1
+    }
+
+
+def _source_name_overlap(question: str, source_name: str) -> int:
+    question_tokens = _tokenize_text(question)
+    source_tokens = _tokenize_text(source_name)
+    return len(question_tokens & source_tokens)
+
+
+def _select_relevant_source_docs(source_docs: list, question: str) -> list:
     if not source_docs:
         return []
 
     grouped = {}
     for doc in source_docs:
         source = doc.metadata.get("source") or ""
-        entry = grouped.setdefault(source, {"docs": [], "count": 0, "score_sum": 0.0, "best_rank": 10**9})
+        entry = grouped.setdefault(
+            source,
+            {
+                "docs": [],
+                "count": 0,
+                "score_sum": 0.0,
+                "best_rank": 10**9,
+                "source_overlap": _source_name_overlap(question, source),
+            },
+        )
         entry["docs"].append(doc)
         entry["count"] += 1
 
@@ -177,13 +219,9 @@ def _select_relevant_source_docs(source_docs: list) -> list:
 
     selected = max(
         grouped.values(),
-        key=lambda item: (item["count"], item["score_sum"], -item["best_rank"]),
+        key=lambda item: (item["source_overlap"], item["count"], item["score_sum"], -item["best_rank"]),
     )
     return selected["docs"]
-
-
-def _normalize_query(text: str) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9\s]", " ", text.lower())).strip()
 
 
 def _is_small_talk(question: str) -> bool:
@@ -269,7 +307,7 @@ def chat(query: Query):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Chat request failed: {exc}") from exc
 
-    relevant_source_docs = _select_relevant_source_docs(result["source_docs"])
+    relevant_source_docs = _select_relevant_source_docs(result["source_docs"], query.question)
 
     image_urls = []
     image_sections = []
