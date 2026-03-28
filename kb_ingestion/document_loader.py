@@ -38,7 +38,7 @@ def _iter_block_items(document: WordProcessingDocument) -> Iterator[Paragraph | 
 
 def _extract_image_names_from_element(document: WordProcessingDocument, element) -> list[str]:
     image_names = []
-    for blip in element.xpath(".//a:blip", namespaces=DRAWING_NAMESPACES):
+    for blip in element.xpath(".//*[local-name()='blip']"):
         rel_id = blip.get(qn("r:embed"))
         if not rel_id or rel_id not in document.part.rels:
             continue
